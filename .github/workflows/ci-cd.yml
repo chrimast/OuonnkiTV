@@ -13,7 +13,7 @@ env:
   DOCKER_REGISTRY: docker.io
   IMAGE_NAME: ouonnkitv
   VITE_PROXY_URL: https://api.codetabs.com/v1/proxy?quest=
-  VITE_INITIAL_VIDEO_SOURCES: ''
+  VITE_INITIAL_VIDEO_SOURCES: https://raw.githubusercontent.com/chrimast/ouonnkitv/main/tv-config.json
 
 jobs:
   # 代码质量检查
