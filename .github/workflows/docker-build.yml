@@ -10,6 +10,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  VITE_INITIAL_VIDEO_SOURCES: https://raw.githubusercontent.com/chrimast/ouonnkitv/main/tv-config.json
 
 jobs:
   build-and-push:
