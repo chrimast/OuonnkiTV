@@ -10,7 +10,7 @@ services:
         VCS_REF: ${VCS_REF:-}
         VERSION: ${VERSION:-dev}
         # 构建时传入环境变量
-        VITE_INITIAL_VIDEO_SOURCES: ${VITE_INITIAL_VIDEO_SOURCES:-https://raw.githubusercontent.com/chrimast/ouonnkitv/main/tv-config.json}
+        VITE_INITIAL_VIDEO_SOURCES: ${VITE_INITIAL_VIDEO_SOURCES:https://raw.githubusercontent.com/chrimast/ouonnkitv/main/tv-config.json}
         VITE_DISABLE_ANALYTICS: ${VITE_DISABLE_ANALYTICS:-true}
     ports:
       - "3000:80"
