@@ -172,7 +172,9 @@ export default function Detail() {
       ? (detail?.videoInfo?.episodes_names?.length || 0) - 1 - displayIndex
       : displayIndex
     // 跳转到播放页面,使用新的路由格式,不传递 state
-    navigate(`/video/${sourceCode}/${vodId}/${actualIndex}`)
+   // navigate(`/video/${sourceCode}/${vodId}/${actualIndex}`)
+    const url = `/video/${sourceCode}/${vodId}/${actualIndex}`
+    window.open(url, '_blank')   // 在新窗口/新标签页打开
   }
 
   // 处理长按开始
