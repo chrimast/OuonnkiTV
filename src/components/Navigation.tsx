@@ -39,7 +39,7 @@ export default function Navigation() {
                 layoutId="logo-text"
                 className="hidden text-lg font-bold text-inherit md:block"
               >
-                OUONNKI TV
+                Freemovie TV
               </motion.p>
             </motion.div>
           </NavLink>
