@@ -1,30 +1,32 @@
 import { OkiLogo, SearchIcon, SettingIcon, CloseIcon } from '@/components/icons'
 import { Button, Input, Chip, Popover, PopoverTrigger, PopoverContent } from '@heroui/react'
-import React, { useEffect, useState, lazy, Suspense } from 'react'
+import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSearchHistory, useSearch } from '@/hooks'
-import { useVersionStore } from '@/store/versionStore'
-import { useApiStore } from '@/store/apiStore'
-import { useSearchStore } from '@/store/searchStore'
-const UpdateModal = lazy(() => import('@/components/UpdateModal'))
+
+import { useSettingStore } from '@/store/settingStore'
+
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/react'
 import RecentHistory from '@/components/RecentHistory'
 import { isBrowser } from 'react-device-detect'
-import SettingsModal from '@/components/SettingsModal'
-import { useDisclosure } from '@heroui/react'
+import { useNavigate } from 'react-router'
+
+import { useVersionStore } from '@/store/versionStore'
+const UpdateModal = React.lazy(() => import('@/components/UpdateModal'))
 
 function App() {
+  // 路由控制
+  const navigate = useNavigate()
   // 删除控制
   const [isSearchHistoryDeleteOpen, setIsSearchHistoryDeleteOpen] = useState(false)
-  // modal  控制
-  const { isOpen, onOpen, onOpenChange } = useDisclosure()
 
   const { searchHistory, removeSearchHistoryItem, clearSearchHistory } = useSearchHistory()
   const { search, setSearch, searchMovie } = useSearch()
+
   const { hasNewVersion, setShowUpdateModal } = useVersionStore()
-  const { initializeEnvSources } = useApiStore()
-  const { cleanExpiredCache } = useSearchStore()
+  const { system } = useSettingStore()
+
   const [buttonTransitionStatus, setButtonTransitionStatus] = useState({
     opacity: 0,
     filter: 'blur(5px)',
@@ -48,24 +50,13 @@ function App() {
     }
   }, [search])
 
-  // 检查版本更新和初始化环境变量视频源
+  // 检查版本更新
   useEffect(() => {
-    // 清理过期的搜索缓存
-    cleanExpiredCache()
-
-    // 检查是否需要初始化
-    const needsInitialization = localStorage.getItem('envSourcesInitialized') !== 'true'
-    if (needsInitialization) {
-      // 初始化环境变量中的视频源
-      initializeEnvSources()
-      localStorage.setItem('envSourcesInitialized', 'true')
-    }
-
-    // 检查版本更新
-    if (hasNewVersion()) {
+    // 检查更新
+    if (hasNewVersion() && system.isUpdateLogEnabled) {
       setShowUpdateModal(true)
     }
-  }, [initializeEnvSources, hasNewVersion, setShowUpdateModal, cleanExpiredCache])
+  }, [hasNewVersion, setShowUpdateModal, system.isUpdateLogEnabled])
 
   const handleSearch = () => {
     searchMovie(search)
@@ -79,24 +70,23 @@ function App() {
 
   return (
     <>
-      <Suspense fallback={null}>
-        <SettingsModal isOpen={isOpen} onOpenChange={onOpenChange} />
-      </Suspense>
+      <React.Suspense fallback={null}>
+        <UpdateModal />
+      </React.Suspense>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <Suspense fallback={null}>
-          <UpdateModal />
-        </Suspense>
         <motion.div layoutId="history-icon" className="absolute top-5 right-5 z-50 flex gap-4">
           <Button isIconOnly className="bg-white/20 shadow-lg shadow-gray-500/10 backdrop-blur-2xl">
             <RecentHistory />
           </Button>
           <Button
-            onPress={onOpen}
+            onPress={() => {
+              navigate('/settings')
+            }}
             isIconOnly
             className="bg-white/20 shadow-lg shadow-gray-500/10 backdrop-blur-2xl"
           >
@@ -174,7 +164,7 @@ function App() {
               }
             />
           </motion.div>
-          {searchHistory.length > 0 && (
+          {useSettingStore.getState().search.isSearchHistoryVisible && searchHistory.length > 0 && (
             <motion.div
               initial={{ filter: isBrowser ? 'opacity(20%)' : 'opacity(100%)' }}
               whileHover={{

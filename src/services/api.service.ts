@@ -6,9 +6,12 @@ class ApiService {
     url: string,
     options: RequestInit = {},
     timeout = 10000,
+    retry = 3,
   ): Promise<Response> {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), timeout)
+    const timeoutId = setTimeout(() => {
+      controller.abort('request timeout')
+    }, timeout)
 
     try {
       const response = await fetch(url, {
@@ -19,6 +22,12 @@ class ApiService {
       return response
     } catch (error) {
       clearTimeout(timeoutId)
+
+      if (retry > 0) {
+        console.warn(`请求失败，正在重试 (剩余${retry}次):`, error)
+        return this.fetchWithTimeout(url, options, timeout, retry - 1)
+      }
+
       throw error
     }
   }
@@ -59,9 +68,14 @@ class ApiService {
 
       const apiUrl = this.buildApiUrl(api.url, API_CONFIG.search.path, encodeURIComponent(query))
 
-      const response = await this.fetchWithTimeout(PROXY_URL + encodeURIComponent(apiUrl), {
-        headers: API_CONFIG.search.headers,
-      })
+      const response = await this.fetchWithTimeout(
+        PROXY_URL + encodeURIComponent(apiUrl),
+        {
+          headers: API_CONFIG.search.headers,
+        },
+        api.timeout,
+        api.retry,
+      )
 
       if (!response.ok) {
         throw new Error(`API请求失败: ${response.status}`)
@@ -135,8 +149,25 @@ class ApiService {
       // 提取播放地址
       if (videoDetail.vod_play_url) {
         const playSources = videoDetail.vod_play_url.split('$$$')
+        const playFroms = (videoDetail.vod_play_from || '').split('$$$')
+
         if (playSources.length > 0) {
-          const mainSource = playSources[playSources.length - 1]
+          // 优先选择包含 m3u8 的源
+          let sourceIndex = playFroms.findIndex((from: string) =>
+            from.toLowerCase().includes('m3u8'),
+          )
+
+          // 如果没找到，默认使用最后一个（原有逻辑）
+          if (sourceIndex === -1) {
+            sourceIndex = playSources.length - 1
+          }
+
+          // 确保索引在有效范围内
+          if (sourceIndex >= playSources.length) {
+            sourceIndex = playSources.length - 1
+          }
+
+          const mainSource = playSources[sourceIndex]
           const episodeList = mainSource.split('#')
 
           episodes = episodeList
