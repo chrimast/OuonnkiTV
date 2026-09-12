@@ -40,18 +40,20 @@ jobs:
           git tag "${backup_tag}" HEAD
           git push origin "${backup_tag}"
 
+          # -X ours resolves normal content conflicts. Keep the fork side
+          # for the remaining conflict, including modify/delete conflicts.
           merge_failed=0
           git merge --no-ff --no-commit -X ours "upstream/${UPSTREAM_BRANCH}" || merge_failed=1
           if [ "$merge_failed" -ne 0 ]; then
             echo "Merge conflicts detected; preserving fork files." >&2
-            while IFS= read -r -d '' path; do
-              if git ls-files -u -- "$path" | grep -q $'^[0-9]* [0-9a-f]* 2	'; then
-                git checkout --ours -- "$path"
-                git add -- "$path"
-              else
-                git rm -f -- "$path"
-              fi
-            done < <(git diff --name-only --diff-filter=U -z)
+            git checkout --ours -- . 2>/dev/null || true
+            git add -A
+            # A deleted file has no ours stage. Re-apply fork deletions from
+            # the pre-merge tree so upstream cannot resurrect them.
+            git diff --name-status --diff-filter=D HEAD "upstream/${UPSTREAM_BRANCH}" -- . | while IFS=$'\t' read -r status path; do
+              [ "$status" = "D" ] && git rm -f -- "$path" 2>/dev/null || true
+            done
+            git add -A
           fi
 
           if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
