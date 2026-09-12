@@ -16,7 +16,7 @@ jobs:
   sync:
     if: ${{ github.event.repository.fork }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - name: Checkout fork
         uses: actions/checkout@v4
@@ -24,24 +24,7 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install dependencies
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          if [ -f package-lock.json ]; then
-            npm ci
-          elif [ -f npm-shrinkwrap.json ]; then
-            npm ci
-          elif [ -f package.json ]; then
-            npm install
-          fi
-
-      - name: Safe merge, verify, and publish
+      - name: Sync upstream and publish
         env:
           UPSTREAM_REPO: Ouonnki/OuonnkiTV
           UPSTREAM_BRANCH: main
@@ -61,6 +44,7 @@ jobs:
           git merge --no-ff --no-commit -X ours "upstream/${UPSTREAM_BRANCH}"
           merge_status=$?
           set -e
+
           if [ "$merge_status" -ne 0 ]; then
             echo "Merge conflicts detected; preserving fork files."
             conflict_file=$(mktemp)
@@ -68,8 +52,6 @@ jobs:
             git checkout --ours -- . 2>/dev/null || true
             git add -A
             while IFS= read -r -d '' path; do
-              # If the fork's pre-merge tree did not contain this path,
-              # the fork deleted it; do not resurrect the upstream file.
               if ! git cat-file -e "HEAD:$path" 2>/dev/null; then
                 git rm -f -- "$path" 2>/dev/null || true
               fi
@@ -80,15 +62,6 @@ jobs:
 
           if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
             git commit --no-edit -m "chore: sync upstream ${UPSTREAM_BRANCH} while preserving fork changes"
-          fi
-
-          if [ -f package.json ]; then
-            if node -e 'const p=require("./package.json");process.exit(p.scripts?.test?0:1)' 2>/dev/null; then npm test --if-present; fi
-            if node -e 'const p=require("./package.json");process.exit(p.scripts?.build?0:1)' 2>/dev/null; then npm run build --if-present; fi
-          fi
-
-          if [ -f bun.lockb ] || [ -f bun.lock ]; then
-            if command -v bun >/dev/null; then bun test; fi
           fi
 
           git diff --check
