@@ -36,6 +36,7 @@ jobs:
           git remote add upstream "https://github.com/${UPSTREAM_REPO}.git" 2>/dev/null || true
           git fetch --no-tags upstream "${UPSTREAM_BRANCH}"
 
+          fork_head="$(git rev-parse HEAD)"
           backup_tag="upstream-sync-backup-${GITHUB_RUN_ID}"
           git tag "${backup_tag}" HEAD
           git push origin "${backup_tag}"
@@ -59,6 +60,16 @@ jobs:
             rm -f "$conflict_file"
             git add -A
           fi
+
+          # Do not push upstream changes to workflow files: GITHUB_TOKEN lacks the workflows scope.
+          while IFS= read -r path; do
+            if git cat-file -e "${fork_head}:${path}" 2>/dev/null; then
+              git checkout "${fork_head}" -- "$path"
+            else
+              git rm -f -- "$path" 2>/dev/null || true
+            fi
+          done < <(git diff --name-only "${fork_head}" -- .github/workflows)
+          git add -A -- .github/workflows
 
           if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
             git commit --no-edit -m "chore: sync upstream ${UPSTREAM_BRANCH} while preserving fork changes"
