@@ -40,13 +40,7 @@ jobs:
           # Merge normally, then explicitly keep the fork version for every
           # conflict, including modify/delete conflicts that -X ours cannot
           # resolve by itself.
-          if ! git merge --no-ff --no-commit -X ours "upstream/${UPSTREAM_BRANCH}"; then
-            echo "Merge conflicts detected; preserving fork files." >&2
-            git checkout --ours -- .
-            git add -A
-          fi
-          git commit --no-edit -m "chore: sync upstream ${UPSTREAM_BRANCH} while preserving fork changes"
-          if [ -f package.json ]; then
+          if ! git merge --no-ff --no-commit -X ours \"upstream/${UPSTREAM_BRANCH}\"; then\n            echo \"Merge conflicts detected; preserving fork files.\" >&2\n            while IFS= read -r path; do\n              git checkout --ours -- \"$path\" 2>/dev/null || git rm -f -- \"$path\"\n              git add -A -- \"$path\"\n            done < <(git diff --name-only --diff-filter=U)\n          fi\n          git commit --no-edit -m \"chore: sync upstream ${UPSTREAM_BRANCH} while preserving fork changes\"\n          if [ -f package.json ]; then
             if node -e 'const p=require("./package.json");process.exit(p.scripts?.test?0:1)' 2>/dev/null; then npm test --if-present; fi
             if node -e 'const p=require("./package.json");process.exit(p.scripts?.build?0:1)' 2>/dev/null; then npm run build --if-present; fi
           fi
