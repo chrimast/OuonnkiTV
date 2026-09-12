@@ -45,7 +45,6 @@ jobs:
           git merge --no-ff --no-commit -X ours "upstream/${UPSTREAM_BRANCH}"
           merge_status=$?
           set -e
-
           if [ "$merge_status" -ne 0 ]; then
             echo "Merge conflicts detected; preserving fork files."
             conflict_file=$(mktemp)
@@ -53,7 +52,7 @@ jobs:
             git checkout --ours -- . 2>/dev/null || true
             git add -A
             while IFS= read -r -d '' path; do
-              if ! git cat-file -e "HEAD:$path" 2>/dev/null; then
+              if ! git cat-file -e "${fork_head}:${path}" 2>/dev/null; then
                 git rm -f -- "$path" 2>/dev/null || true
               fi
             done < "$conflict_file"
@@ -61,7 +60,8 @@ jobs:
             git add -A
           fi
 
-          # Do not push upstream changes to workflow files: GITHUB_TOKEN lacks the workflows scope.
+          # GITHUB_TOKEN cannot update workflow files. Keep the fork's
+          # workflow directory so this generic sync can push successfully.
           while IFS= read -r path; do
             if git cat-file -e "${fork_head}:${path}" 2>/dev/null; then
               git checkout "${fork_head}" -- "$path"
