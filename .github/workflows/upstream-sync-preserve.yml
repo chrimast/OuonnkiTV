@@ -30,7 +30,7 @@ jobs:
           UPSTREAM_BRANCH: main
         shell: bash
         run: |
-          set -euo pipefail
+          set -Eeuo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote add upstream "https://github.com/${UPSTREAM_REPO}.git" 2>/dev/null || true
@@ -46,14 +46,19 @@ jobs:
           set -e
           if [ "$merge_status" -ne 0 ]; then
             echo "Merge conflicts detected; preserving fork files."
-            while IFS= read -r path; do
-              if git ls-files -u -- "$path" | grep -q $'^[0-9]* [0-9a-f]* 2\t'; then
-                git checkout --ours -- "$path"
-                git add -- "$path"
-              else
-                git rm -f -- "$path"
+            conflict_file=$(mktemp)
+            git diff --name-only --diff-filter=U -z > "$conflict_file"
+            git checkout --ours -- . 2>/dev/null || true
+            git add -A
+            while IFS= read -r -d '' path; do
+              # If the fork's pre-merge tree did not contain this path,
+              # the fork deleted it; do not resurrect the upstream file.
+              if ! git cat-file -e "HEAD:$path" 2>/dev/null; then
+                git rm -f -- "$path" 2>/dev/null || true
               fi
-            done < <(git diff --name-only --diff-filter=U)
+            done < "$conflict_file"
+            rm -f "$conflict_file"
+            git add -A
           fi
 
           if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
