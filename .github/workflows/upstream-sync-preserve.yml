@@ -40,21 +40,20 @@ jobs:
           git tag "${backup_tag}" HEAD
           git push origin "${backup_tag}"
 
-          # Keep all non-conflicting upstream changes. For conflicts, keep
-          # the fork side. This also handles the known modify/delete workflow
-          # conflict without relying on fragile shell pipelines.
           set +e
           git merge --no-ff --no-commit -X ours "upstream/${UPSTREAM_BRANCH}"
           merge_status=$?
           set -e
           if [ "$merge_status" -ne 0 ]; then
             echo "Merge conflicts detected; preserving fork files."
-            git checkout --ours -- . 2>/dev/null || true
-            git add -A
-            if git ls-files -u --name-only | grep -Fxq ".github/workflows/sync.yml"; then
-              git rm -f -- .github/workflows/sync.yml
-            fi
-            git add -A
+            while IFS= read -r path; do
+              if git ls-files -u -- "$path" | grep -q $'^[0-9]* [0-9a-f]* 2\t'; then
+                git checkout --ours -- "$path"
+                git add -- "$path"
+              else
+                git rm -f -- "$path"
+              fi
+            done < <(git diff --name-only --diff-filter=U)
           fi
 
           if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
